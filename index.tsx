@@ -13,7 +13,7 @@ import 'react-toastify/dist/ReactToastify.css'
 
 import { MetaMaskInpageProvider } from '@metamask/providers'
 
-import { Connection, PublicKey, Transaction, clusterApiUrl } from '@solana/web3.js'
+import { Connection, PublicKey, clusterApiUrl } from '@solana/web3.js'
 
 import { getNetworkById } from './networks'
 import { checkEnsValid, parseAddressFromEnsSolana, parseEnsFromSolanaAddress } from './utils/solana'
@@ -83,8 +83,7 @@ const goMetamask = () => {
     const locationHref = window.location.href
     let locationHrefNoProtocol = locationHref.replace('http://', '')
     locationHrefNoProtocol = locationHrefNoProtocol.replace('https://', '')
-    const deepLink = `https://metamask.app.link/dapp/${locationHrefNoProtocol}`
-    window.location.href = deepLink
+    window.location.href = `https://metamask.app.link/dapp/${locationHrefNoProtocol}`
   }
   if (!isMobile(window.navigator).any) {
     window.open('https://chrome.google.com/webstore/detail/metamask/nkbihfbeogaeaoehlefnkodbefgpgknn')
@@ -131,8 +130,7 @@ const Wallet = props => {
       // ENS test
       //const address = '0xd8da6bf26964af9d7eed9e03e53415d37aa96045'
       const answer = await (await fetch(`https://domains.1inch.io/reverse-lookup?address=${address}`)).json()
-      const domain = answer.domain
-      return domain
+      return answer.domain
     } catch (e) {
       console.warn(`Can't get domain, ${e}`)
     }
@@ -590,11 +588,22 @@ const Wallet = props => {
 
   const sendTx = async (transaction, { signers = [] } = {}) => {
     console.log('[Wallet] sendTx', transaction)
+    let preparedTransaction = transaction
+
+    // EVM-like preparing
+    if (state.name !== 'Phantom') {
+      preparedTransaction.from = state.address
+      preparedTransaction.value = state.web3?.utils.numberToHex(preparedTransaction.value)
+      // preparedTransaction.gasPrice = state.web3?.utils.numberToHex(state.web3?.utils.toWei(String(gwei), 'Gwei'))
+      preparedTransaction.gas = preparedTransaction.gas
+        ? state.web3?.utils.numberToHex(preparedTransaction.gas)
+        : state.web3?.utils.numberToHex(1000000)
+    }
 
     if (state.name === 'MetaMask') {
       return await state.provider.request({
         method: 'eth_sendTransaction',
-        params: [transaction]
+        params: [preparedTransaction]
       })
     }
 
